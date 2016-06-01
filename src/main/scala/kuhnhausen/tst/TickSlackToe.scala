@@ -30,11 +30,10 @@ object TickSlackToe {
         case b: InvalidBoard => game
         case b => {
           games.update(game.id, game)
+          pending.remove(game.id)
           game
         }
       }
-      games.update(game.id, game)
-      game
     }
     def getPending(id: GameId): Future[Option[PendingGame]] = Future.value {
       pending.get(id)

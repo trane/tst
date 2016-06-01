@@ -77,6 +77,24 @@ object Messages {
     val response_type = EphemeralResponse
   }
 
+  case class GameInProgressMessage(game: Game) extends Message {
+    val text = "Game in progress"
+    val attachments = List(Attachment.fromGame(game))
+    val response_type = EphemeralResponse
+  }
+
+  case class GameStartedMessage(game: Game) extends Message {
+    val text = "Game started, challenge accepted"
+    val attachments = List(Attachment.fromGame(game))
+    val response_type = InChannelResponse
+  }
+
+  case class NewGameMessage(pending: PendingGame) extends Message {
+    val text = s"New game challenge by ${pending.player.name}. Play against them by type `/tst play`"
+    val attachments = List()
+    val response_type = InChannelResponse
+  }
+
   case object NotAllowedMessage extends Message {
     val text = s"You are not in the current game, type 'show' and wait for that game to finish"
     val attachments = List()
@@ -93,18 +111,6 @@ object Messages {
   }
 
   /**
-    * If there is already a game, display text about there already being a game.
-    * Otherwise, display a challenge message allowing the other player to accept
-    */
-  case class PlayMessage(game: Either[PendingGame, Game]) extends Message {
-    val (text, attachments, response_type) = game match {
-      case Left(pending) => (s"New game challenge by ${pending.player.name}. Play against them by typing `/tst play`", List(), InChannelResponse)
-
-      case Right(game) => ("Game already ongoing", List(Attachment.fromGame(game)), EphemeralResponse)
-    }
-  }
-
-  /**
     * If user tries an invalid move, display helpful message, otherwise
     * display the updated in_channel message with the new board.
     */
@@ -116,17 +122,27 @@ object Messages {
     }
   }
 
+  case object NotYourTurnMessage extends Message {
+    val text = "It is not your turn, wait for opponent to make a move"
+    val attachments = List()
+    val response_type = EphemeralResponse
+  }
+
   /**
     * If game is over, then this is invalid, display "Game already over"
     * and then winning text.
     * Otherwise display winning text.
     */
-  case class ForfeitMessage(game: Game, player: Player) extends Message {
-    val (text, attachments, response_type) = game.board match {
-      case t: WinningBoard => ("Game already over", List(), EphemeralResponse)
-      case t: ValidBoard => (s"${player.name} forfeits the game!", List(), InChannelResponse)
-      case _ => ("", List(), EphemeralResponse)
-    }
+  case class ForfeitMessage(player: Player) extends Message {
+    val text = s"${player.name} forfeits the game"
+    val attachments = List()
+    val response_type = InChannelResponse
+  }
+
+  case object GameOverMessage extends Message {
+    val text = "Game already over"
+    val attachments = List()
+    val response_type = EphemeralResponse
   }
 
 }

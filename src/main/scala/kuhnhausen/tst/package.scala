@@ -136,7 +136,12 @@ package object tst {
     def update(square: Int, mark: Mark)(implicit validator: Validator): Board = {
       val row = (square - 1) / 3
       val index = (square - 1) % 3
-      Board(board.updated(row, board(row).updated(index, mark)))
+      val curMark = board(row)(index)
+      val newBoard = board.updated(row, board(row).updated(index, mark))
+      if (curMark == Unmarked)
+        Board(newBoard)
+      else
+        InvalidBoard(newBoard)
     }
   }
   case class ValidBoard(board: Grid) extends Board

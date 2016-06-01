@@ -70,55 +70,51 @@ object Slack {
       ) getOrElse (NoGameMessage)
     )
 
-  // return a PlayMessage or NotAllowedMessage if user doesn't have permissions to start/accept a game
-  def play(gameId: GameId, user: User)(implicit store: GameStore): Future[Message] =
-    pendingOrGame(gameId, user).map(either => either match {
-      case Left(PendingGame(_, p)) if !validUser(user, p) => NotAllowedMessage
-      case Right(game) if !validUser(user, game) => NotAllowedMessage
-      case _ => PlayMessage(either)
-    })
-
   // return a MarkMessage, or NotAllowedMessage if request is from invalid user, or NoGameMessage if not game exists
   def mark(gameId: GameId, user: User, num: Int)(implicit store: GameStore): Future[Message] =
-    store.getGame(gameId).map(maybeGame =>
-      maybeGame.map(game =>
-        if (validUser(user, game)) MarkMessage(game.mark(num))
-        else NotAllowedMessage
-      ) getOrElse (NoGameMessage)
-    )
+    store.getGame(gameId).flatMap(_ match {
+      case None => Future.value(NoGameMessage)
+      case Some(game) if user.id == game.players.one.id => store.updateGame(game.mark(num)).map(MarkMessage(_))
+      case Some(game) if user.id == game.players.two.id => Future.value(NotYourTurnMessage)
+      case _ => Future.value(NotAllowedMessage)
+    })
 
   // return ForfeitMessage if valid to forfeit, NotAllowedMessage if from invalid user, or NoGameMessage if no game exists
   def forfeit(gameId: GameId, user: User)(implicit store: GameStore): Future[Message] =
-    store.getGame(gameId).map(maybeGame =>
+    store.getGame(gameId).flatMap(maybeGame =>
       maybeGame.map(game =>
-        game.players.get(user.id).map(player =>
-          ForfeitMessage(game.copy(winner = Some(game.players.other(player))), player)
-        ) getOrElse (NotAllowedMessage)
-      ) getOrElse (NoGameMessage)
+        game.players.get(user.id).map(player => game.winner match {
+          case None => store.updateGame(
+                         game.copy(winner = Some(game.players.other(player)))
+                       ).map(_ => ForfeitMessage(player))
+          case Some(winner) => Future.value(GameOverMessage)
+        }) getOrElse (Future.value(NotAllowedMessage))
+      ) getOrElse (Future.value(NoGameMessage))
     )
 
   def unknown(text: Text): Future[Message] =
     Future.value[Message](UnrecognizedMessage(text.text))
 
   /**
-   * If a game exists, return Right(:game)
-   * Otherwise, if there is a pending game, return Right(:game) with players completed
-   * Otherwise, this is a new game pending game and return Left(:pendinggame)
-   */
-  def pendingOrGame(gameId: GameId, user: User)(implicit store: GameStore): Future[Either[PendingGame, Game]] = {
-    store.getGame(gameId).flatMap(game => game match {
-      case None => {
-        store.getPending(gameId).flatMap(pend => pend match {
-          case None => store.updatePending(
-            PendingGame(gameId, Player(user.id, user.name, Challenger))
-          ).map(Left(_))
-          case Some(p) => store.updateGame(
-            Game(gameId, Players(p.player, Player(user.id, user.name, Opponent)), Board.empty)
-          ).map(Right(_))
-        })
-      }
-      case Some(g) => Future.value(Right(g))
+    * If there is no PendingGame and no Game
+    *   create a PendingGame and return NewGameMessage
+    * If there is no PendingGame, but there is a Game
+    *   return GameInProgressMessage
+    * If there is a PendingGame
+    *   create a new Game with this player (even if it's someone playing with themselves)
+    *   return GameStartedMessage
+    */
+  def play(gameId: GameId, user: User)(implicit store: GameStore): Future[Message] =
+    store.getPending(gameId).flatMap(_ match {
+      case Some(pg) => store.updateGame(
+        Game(gameId, Players(pg.player, Player(user.id, user.name, Opponent)), Board.empty)
+      ).map(GameStartedMessage(_))
+      case None => store.getGame(gameId).flatMap(_ match {
+        case None => store.updatePending(
+          PendingGame(gameId, Player(user.id, user.name, Challenger))
+        ).map(NewGameMessage(_))
+        case Some(g) => Future.value(GameInProgressMessage(g))
+      })
     })
-  }
 
 }
