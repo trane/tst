@@ -81,96 +81,6 @@ g h i    7 8 9
 Numbers might be better for non-alphabetic languages, and most people start
 counting from 1 instead of 0.
 
-## Grammar
-
-Here is an EBNF form:
-
-```
-  Command      ::= SlashCommand " " [Option]
-  SlashCommand ::= "/ttt" | "/tst"
-  Option       ::= Challenge | Mark | "show" | "help" | "forfeit"
-  Challenge    ::= "play" " " "@" username
-  Mark         ::= "mark" " " 1-9
-  username     ::= valid username
-```
-
-## API
-
-### help
-
-```
-/ttt help
-```
-
-Visibility: Ephemeral
-Description: It will display the usage, potential commands and options
-
-### show
-
-```
-/ttt show
-```
-
-Visibility: Ephemeral
-Description: Shows the current game (or last game played) in the channel, if
-the last game to be played is no longer available then it will read "no games
-to show"
-
-### play
-
-```
-/ttt play USERNAME
-```
-
-If the game can be played, then:
-  Visibility: In-Channel
-  Description: "New game between :user1 and :user2" starting" and the empty
-               board will be displayed.
-
-If there is already a game in the channel, then:
-  Visibility: Ephemeral
-  Description: "There is already a game going on between :user1 and :user2"
-
-If there is already a game between the requesting user and the requested user,
-an ephemeral message would display:
-  Visibility: Ephemeral
-  Description: "You are already in a game with :other user, and it's :user's turn"
-
-### mark
-
-```
-/ttt mark NUM
-```
-
-First:
-  Visibility: Ephemeral
-  Description: If the user tries to mark a space that is already marked, a
-               message will come back saying "already played at that spot"
-
-Second:
-  Visibility: Ephemeral
-  Description: "Confirm Y/N" then display the board as it would be if "yes"
-
-Third:
-  Visibility: In-Channel
-  Description: If First is "Y", then display ":user marked :num" and display
-               the updated board
-
-
-### forfeit
-
-```
-/ttt forfeit
-```
-
-First:
-  Visibility: Ephemeral
-  Description: "Are you sure you want to forfeit the game? It will count as a
-               loss"
-Second:
-  Visibility: In-Channel
-  Description: If First is "Y", then ":user forfeited the game. :otheruser
-               wins" and then display the board.
 
 # Server
 
@@ -191,15 +101,15 @@ Game :: (GameId, Players, Board)
 
 # GameId is the product type of team_id and channel_id
 GameId :: (TeamId, ChannelId)
-TeamId :: Int
-ChannelId :: Int
+TeamId :: String
+ChannelId :: String
 
 # Players a product type of two players
 Players :: (Player, Player)
 
 # A player is the product type of user_id, name, and if they are the challenger
 Player :: (UserId, Name, Mode)
-UserId :: Int
+UserId :: String
 Name   :: String
 Mode   :: 'challenger | 'opponent
 
@@ -294,3 +204,126 @@ immediately, so we don't have consistency issues.
 However, the operational cost and complexity for those unfamiliar with the
 technology, paired with the volatility of many of the products makes for
 longer-term maintenance headache potential.
+
+
+# API
+
+## Request/Response data types
+
+Deriving the type of response to a specific request is well-formed and should
+be simply described as a contract and transformations into the contract.
+
+As documented an example request would look like:
+
+```
+token=jJGfagzhcGLFIXoPSSL4ssd3
+team_id=T0001
+team_domain=example
+channel_id=C2147483705
+channel_name=test
+user_id=U2147483697
+user_name=Steve
+command=/tst
+text=help
+response_url=https://hooks.slack.com/commands/1234/5678
+```
+
+A response should be predicated on the `text`, for example a `Help` response
+is static and only dependent on the `text == "help"` field of the incoming
+request (since, by default the message is ephemeral and not in-channel).
+
+A `mark` response is dependent on `user*`, `channel*` and `text*` values, since
+we use those to hydrate a Game from persistent memory and respond with either a
+Success or Failure response (depending on if the move was valid, if it ends in
+them winning).
+
+A response is also well formed, but there are many options that we can respond
+with (attachment, ephemeral, in-channel, etc). So we should encode those values
+appropriately.
+
+```
+Response ::= JSON(<Message>)
+Message ::= (<ResponseType>, text, [<Attachment>])
+Attachment ::= (title, text, fallback, pretext)
+ResponseType ::= "in_channel" | "ephemeral"
+```
+
+## Grammar
+
+Here is an EBNF form:
+
+```
+  <Command>      ::= <SlashCommand> " " [<Option>]
+  <SlashCommand> ::= "/ttt" | "/tst"
+  <Option>       ::= <Challenge> | <Mark> | "show" | "help" | "forfeit"
+  <Challenge>    ::= "play" " " "@" username
+  <Mark>         ::= "mark" " " 1-9
+```
+
+## help
+
+```
+/ttt help
+```
+
+Visibility: Ephemeral
+Description: It will display the usage, potential commands and options
+
+## show
+
+```
+/ttt show
+```
+
+Visibility: Ephemeral
+Description: Shows the current game (or last game played) in the channel, if
+the last game to be played is no longer available then it will read "no games
+to show"
+
+## play
+
+```
+/ttt play
+```
+
+If this is a new game and can be played, then:
+  Visibility: In-Channel
+  Description: "New game challenge started, by :user. Type `/tst play` to
+               play!"
+
+If there is already a game in the channel, then:
+  Visibility: Ephemeral
+  Description: "There is already a game going on between :user1 and :user2"
+
+## mark
+
+```
+/ttt mark NUM
+```
+
+First:
+  Visibility: Ephemeral
+  Description: If the user tries to mark a space that is already marked or an
+               invalid move, a message will come back saying "invalid move, try
+               \"help\""
+
+Second:
+  Visibility: In-Channel
+  Description: If valid play, then display ":user marked :num" and display
+               the updated board
+
+
+## forfeit
+
+```
+/ttt forfeit
+```
+
+First:
+  Visibility: Ephemeral
+  Description: If game is over, then this is an invalid command. "Game already
+               over, :user beat :otheruser"
+Second:
+  Visibility: In-Channel
+  Description: ":winner beat :loser"
+

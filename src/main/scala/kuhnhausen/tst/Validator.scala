@@ -77,8 +77,9 @@ object Validator {
     @tailrec
     def transpose(board: Grid, acc: Grid): Grid = {
       board match {
-        case Nil :: Nil => acc
+        case List() :: List() :: List() :: Nil => acc
         case a :: b :: c :: Nil => transpose(List(a.tail, b.tail, c.tail), List(a.head, b.head, c.head) :: acc)
+        case _ => acc
       }
     }
     test(transpose(board, List(List())))
@@ -129,10 +130,10 @@ object Validator {
   *
   * So, set lookup is O(1) for an immutable [[Grid]]
   */
-case object FastValidator extends Validator {
+object FastValidator extends Validator {
+  private[this] val marks: List[Mark] = List(Ex, Oh, Unmarked)
   private[this] val valids: Set[Grid] = boards.filter(Validator.isValidBoard).toSet
   private[this] val winners: Set[Grid] = valids.filter(Validator.isWinningBoard)
-  private[this] val board: List[Mark] = List(Ex, Oh, Unmarked)
 
   def isValid(board: Grid): Boolean =
     valids(board)
@@ -145,9 +146,9 @@ case object FastValidator extends Validator {
     */
   private[this] def rows: Grid =
     for {
-      a <- board
-      b <- board
-      c <- board
+      a <- marks
+      b <- marks
+      c <- marks
     } yield List(a, b, c)
 
   /**
