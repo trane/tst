@@ -74,6 +74,7 @@ object Slack {
   def mark(gameId: GameId, user: User, num: Int)(implicit store: GameStore): Future[Message] =
     store.getGame(gameId).flatMap(_ match {
       case None => Future.value(NoGameMessage)
+      case Some(game) if game.winner.isDefined => Future.value(GameOverMessage)
       case Some(game) if user.id == game.players.one.id => store.updateGame(game.mark(num)).map(MarkMessage(_))
       case Some(game) if user.id == game.players.two.id => Future.value(NotYourTurnMessage)
       case _ => Future.value(NotAllowedMessage)

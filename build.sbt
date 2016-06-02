@@ -21,3 +21,6 @@ resolvers ++= Seq(  "oss-snapshots" at "https://oss.sonatype.org/content/reposit
                     "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/")
 
 licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
+
+assemblyJarName in assembly := "tst.jar"
+mainClass in assembly := Some("kuhnhausen.tst.Main")

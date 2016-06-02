@@ -118,7 +118,7 @@ class SlackSpec extends FlatSpec with Matchers {
     result(myStore.getGame(game.id)).get should be(game)
   }
 
-  "mark" should "a winning MarkMessage if winning move and update the game" in {
+  "mark" should "return winning MarkMessage if winning move and update the game" in {
     /**
       * x x .
       * o o .
@@ -134,7 +134,7 @@ class SlackSpec extends FlatSpec with Matchers {
       ("user_name", game.players.one.name)
     ))
     val res = result(service.apply(req))
-    res.contentString.contains("won!") should be(true)
+    res.contentString.contains("won") should be(true)
     val newGame = result(myStore.getGame(game.id)).get
     newGame should not be(game)
     newGame.winner.get should be(game.players.one)

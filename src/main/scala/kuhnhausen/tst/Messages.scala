@@ -117,7 +117,7 @@ object Messages {
   case class MarkMessage(game: Game) extends Message {
     val (text, attachments, response_type) = game.board match {
       case t: InvalidBoard => ("Invalid move", List(), EphemeralResponse)
-      case t: WinningBoard => (s"${game.players.two.name} won!", List(Attachment.fromGame(game)), InChannelResponse)
+      case t: WinningBoard => (s"${game.players.two.name} won the game", List(Attachment.fromGame(game)), InChannelResponse)
       case t: ValidBoard => ("", List(Attachment.fromGame(game)), InChannelResponse)
     }
   }
