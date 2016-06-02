@@ -85,6 +85,9 @@ package object tst {
       case _ => None
     }
 
+    /**
+      * Return the player not passed in
+      */
     def other(player: Player): Player =
       if (player == one) two
       else one
